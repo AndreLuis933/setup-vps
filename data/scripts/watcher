@@ -58,6 +58,8 @@ while true; do
       echo "[$curr_date] Updating git repository (branch: ${DEPLOY_BRANCH:-main})..."
       git fetch origin "${DEPLOY_BRANCH:-main}"
       git reset --hard "origin/${DEPLOY_BRANCH:-main}"
+    else
+      echo "$DEPLOY_SCRIPT_ROOT nao tem git"
     fi
 
     if [[ ! -f "$DEPLOY_SCRIPT" ]]; then
