@@ -19,8 +19,7 @@ catch_errors() {
 trap catch_errors ERR
 
 SCRIPTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}" || exit)" && pwd)"
-DATA_DIR=$(dirname "${SCRIPTS_DIR}")
-ROOT_DIR=$(dirname "${DATA_DIR}")
+ROOT_DIR=$(dirname "${SCRIPTS_DIR}")
 ENV_FILE="${ROOT_DIR}/.env"
 
 # shellcheck source=../../.env

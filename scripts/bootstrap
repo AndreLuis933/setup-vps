@@ -39,7 +39,7 @@ development_certs_dir="${DATA_DIR}/letsencrypt/live/development"
 privkey_path="${development_certs_dir}/privkey.pem"
 fullchain_path="${development_certs_dir}/fullchain.pem"
 
-/bin/bash -c "'${SCRIPTS_DIR}/backup_volumes' before"
+/bin/bash -c "'${DATA_DIR}/backup_volumes' before"
 
 mkdir -p "${development_certs_dir}"
 openssl_cmd="openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout"
@@ -75,5 +75,5 @@ docker compose up -d --build --force-recreate --remove-orphans
 container_up_or_die nginx
 container_up_or_die certbot
 
-/bin/bash -c "'${SCRIPTS_DIR}/backup_volumes' after"
+/bin/bash -c "'${DATA_DIR}/backup_volumes' after"
 
