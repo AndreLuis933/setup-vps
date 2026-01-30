@@ -2,7 +2,7 @@
 
 services:
   data_vol:
-    image: ghcr.io/andreluis933/teste_vps_deploy-data_vol:latest
+    image: ghcr.io/andreluis933/setup-vps-data_vol:latest
     pull_policy: always
     container_name: data_vol
     hostname: data_vol
@@ -24,7 +24,7 @@ services:
 
   dockerlabs:
     pull_policy: always
-    image: ghcr.io/andreluis933/teste_vps_deploy-dockerlabs:latest
+    image: ghcr.io/andreluis933/setup-vps-dockerlabs:latest
     restart: unless-stopped
     scale: 2 # <- Uma aplicação, 2 containers
     volumes:
@@ -50,7 +50,7 @@ services:
     container_name: nginx
     hostname: nginx
     pull_policy: always
-    image: ghcr.io/andreluis933/teste_vps_deploy-nginx:latest
+    image: ghcr.io/andreluis933/setup-vps-nginx:latest
     restart: unless-stopped
     ports:
       - 443:443
@@ -72,7 +72,7 @@ services:
     container_name: certbot
     hostname: certbot
     pull_policy: always
-    image: ghcr.io/andreluis933/teste_vps_deploy-certbot:latest
+    image: ghcr.io/andreluis933/setup-vps-certbot:latest
     restart: unless-stopped
     volumes:
       - scripts:/scripts:ro
