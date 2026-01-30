@@ -7,7 +7,8 @@
 # # License: MIT
 # ################################################################################
 
-
+# docker exec data_vol sh -c "ls -A /data/webhook_jobs | head -n 1"
+#docker exec data_vol sh -c "find /data/webhook_jobs -mindepth 1 -maxdepth 1 -type d | head -n 1"
 set -u
 
 PARENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}" || exit)" && pwd)"
@@ -70,8 +71,8 @@ while true; do
     fi
 
     # Apaga APENAS a pasta do job executado
-    echo "[$curr_date] Removing job folder: $JOB_FOLDER"
-    docker exec data_vol sh -c "rm -rf ${JOB_FOLDER}"
+    #echo "[$curr_date] Removing job folder: $JOB_FOLDER"
+    #docker exec data_vol sh -c "rm -rf ${JOB_FOLDER}"
 
   ) 200>"$LOCK_FILE"
 
