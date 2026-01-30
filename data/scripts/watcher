@@ -1,8 +1,5 @@
 #!/usr/bin/env bash
-# vim:sw=2:ts=2:et:set filetype=bash :
 
-# docker exec data_vol sh -c "ls -A /data/webhook_jobs | head -n 1"
-#docker exec data_vol sh -c "find /data/webhook_jobs -mindepth 1 -maxdepth 1 -type d | head -n 1"
 set -u
 
 INTERVAL=60 # (Seconds) Check interval
@@ -41,6 +38,9 @@ while true; do
       exit 0
     fi
 
+    echo "[$curr_date] Removing job folder: $JOB_FOLDER"
+    docker exec data_vol sh -c "rm -rf ${JOB_FOLDER}"
+
     # Extrai o nome da pasta
     JOB_NAME=$(basename "$JOB_FOLDER")
     echo "[$curr_date] Processing job: $JOB_NAME"
@@ -74,9 +74,7 @@ while true; do
         echo "[$(date "+%s")] Deploy failed for $JOB_NAME."
     fi
 
-    # Sempre remove o job (marca como feito, mesmo se falhar)
-    echo "[$curr_date] Removing job folder: $JOB_FOLDER"
-    docker exec data_vol sh -c "rm -rf ${JOB_FOLDER}"
+
 
   ) 200>"$LOCK_FILE"
 
