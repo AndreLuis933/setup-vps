@@ -45,6 +45,7 @@ func main() {
 	router := gin.Default()
 
 	router.GET("/", rootHandler)
+	router.HEAD("/health", healthCheckHandler)
 	router.GET("/health", healthCheckHandler)
 	router.POST("/webhook/github", githubWebhookHandler)
 
