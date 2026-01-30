@@ -52,7 +52,7 @@ while true; do
     echo "[$curr_date] Processing job: $JOB_NAME"
 
     # Determina qual script executar baseado no nome da pasta
-    DEPLOY_SCRIPT="/projects/${JOB_NAME}/data/scripts/deploy"
+    DEPLOY_SCRIPT="/projects/${JOB_NAME}/scripts/deploy"
 
     if [[ ! -f "$DEPLOY_SCRIPT" ]]; then
       echo "[$curr_date] Deploy script not found: $DEPLOY_SCRIPT. Skipping..."
