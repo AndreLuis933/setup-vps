@@ -21,8 +21,8 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
 # Stage 2: Runtime
 FROM alpine:latest AS production
 
-ARG APP_UID
-ARG APP_GID
+ARG APP_UID=1000
+ARG APP_GID=1000
 
 # Instalar apenas o necessário
 RUN apk --no-cache add ca-certificates wget

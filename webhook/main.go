@@ -43,6 +43,9 @@ func init() {
 
 func main() {
 	router := gin.Default()
+	router.SetTrustedProxies([]string{
+		"10.11.12.0/24",
+	})
 
 	router.GET("/", rootHandler)
 	router.HEAD("/health", healthCheckHandler)
