@@ -26,18 +26,17 @@ services:
     pull_policy: always
     image: ghcr.io/andreluis933/setup-vps-dockerlabs:latest
     restart: unless-stopped
-    scale: 2 # <- Uma aplicação, 2 containers
     volumes:
       - scripts:/scripts:ro
       - webhook_jobs:/app/webhook_jobs:rw
     env_file:
       - .env
     healthcheck:
-      test: ['CMD', 'healthcheck']
+      test: ['CMD-SHELL', 'curl -f http://localhost:8000/health || exit 1']
       interval: 10s
       timeout: 5s
-      retries: 5
-      start_period: 30s
+      retries: 3
+      start_period: 10s
     depends_on:
       data_vol:
         condition: service_started

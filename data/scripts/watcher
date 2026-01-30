@@ -12,19 +12,17 @@ set -u
 PARENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}" || exit)" && pwd)"
 INTERVAL=60 # (Seconds) Check interval
 
+
 # Webhook Jobs Directory (Inside the shared volume)
-# I'm using the data_vol container to spread volumes for the other
-# containers.
 WEBHOOKS_JOBS_DIR="/data/webhook_jobs"
+
 # The job runs in the host server. The lock file path refers to the host.
 LOCK_FILE="/tmp/webhook_deploy.lock"
 
 echo "Watcher started. Lock file: $LOCK_FILE"
 
 while true; do
-  # Check if there are any files in the directory.
-  # We don't care about the name or order, just presence.
-  # 'ls -A' lists all entries except . and ..
+  # Check if there are any folders in the directory
   HAS_JOBS=$(docker exec data_vol sh -c "ls -A ${WEBHOOKS_JOBS_DIR} | head -n 1")
 
   if [[ -z "$HAS_JOBS" ]]; then
@@ -34,34 +32,49 @@ while true; do
   fi
 
   # Jobs found! Let's acquire the lock to ensure atomic execution.
-  # The parentheses opens a subshell that will be locked.
   (
     flock -n 200 || exit 1 # <- HELLO GIL 😂
 
     curr_date=$(date "+%s")
     echo "[$curr_date] Jobs detected! Locking and starting deploy sequence..."
 
-    # DEBOUNCE STRATEGY:
-    # Instead of processing one by one, we wipe the queue and run the deploy ONCE.
-    # Since the deploy script performs a 'git pull', it will always fetch the
-    # latest state (the sum of all pushes). This prevents redundant builds.
+    # Pega a primeira pasta encontrada
+    JOB_FOLDER=$(docker exec data_vol sh -c "find ${WEBHOOKS_JOBS_DIR} -mindepth 1 -maxdepth 1 -type d | head -n 1")
 
-    echo "[$curr_date] Clearing job queue (Debounce)..."
-    docker exec data_vol sh -c "rm -rf ${WEBHOOKS_JOBS_DIR}/*"
+    if [[ -z "$JOB_FOLDER" ]]; then
+      echo "[$curr_date] No valid job folder found."
+      exit 0
+    fi
 
-    echo "[$curr_date] Running deploy script..."
+    # Extrai o nome da pasta
+    JOB_NAME=$(basename "$JOB_FOLDER")
+    echo "[$curr_date] Processing job: $JOB_NAME"
 
-    if /bin/bash "${PARENT_DIR}/deploy"; then
-        echo "[$(date "+%s")] Deploy success."
+    # Determina qual script executar baseado no nome da pasta
+    DEPLOY_SCRIPT="/projects/${JOB_NAME}/scripts/deploy"
+
+    if [[ ! -f "$DEPLOY_SCRIPT" ]]; then
+      echo "[$curr_date] Deploy script not found: $DEPLOY_SCRIPT. Skipping..."
+      docker exec data_vol sh -c "rm -rf ${JOB_FOLDER}"
+      exit 0
+    fi
+
+    echo "[$curr_date] Running deploy script: $DEPLOY_SCRIPT"
+
+    if /bin/bash "$DEPLOY_SCRIPT"; then
+        echo "[$(date "+%s")] Deploy success for $JOB_NAME."
     else
-        echo "[$(date "+%s")] Deploy failed."
+        echo "[$(date "+%s")] Deploy failed for $JOB_NAME."
         # Optional: Send notification to Discord/Slack here
     fi
+
+    # Apaga APENAS a pasta do job executado
+    echo "[$curr_date] Removing job folder: $JOB_FOLDER"
+    docker exec data_vol sh -c "rm -rf ${JOB_FOLDER}"
 
   ) 200>"$LOCK_FILE"
 
   # If flock exited with 1, it means another instance is running.
-  # We just wait for the next cycle.
   if [ $? -eq 1 ]; then
       echo "[$(date "+%s")] Deploy already in progress. Skipping..."
   fi

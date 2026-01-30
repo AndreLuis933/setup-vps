@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+# vim:sw=2:ts=2:et:set filetype=bash :
+
+# ################################################################################
+# # Author: Luiz Otávio Miranda <luizomf@gmail.com>
+# # Date: 2026-01-10
+# # License: MIT
+# ################################################################################
+
+set -Eeuo pipefail
+
+catch_errors() {
+  local rc=$?
+  printf '\nERROR:\nsrc=%s\nline=%s\nrc=%s\ncmd=%b\n\n' \
+    "${BASH_SOURCE[0]}" "$LINENO" "$rc" "$BASH_COMMAND" >&2
+  exit "$rc"
+}
+
+trap catch_errors ERR
+
+SCRIPTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}" || exit)" && pwd)"
+DATA_DIR=$(dirname "${SCRIPTS_DIR}")
+ROOT_DIR=$(dirname "${DATA_DIR}")
+ENV_FILE="${ROOT_DIR}/.env"
+
+# shellcheck source=../../.env
+[[ -f "${ENV_FILE}" ]] && source "${ENV_FILE}"
+
+cd "$ROOT_DIR"
+
+test -d .git
+
+/bin/bash -c "'${SCRIPTS_DIR}/backup_volumes' before_$(git rev-parse --short HEAD)"
+
+if [[ "$CURRENT_ENV" == "production" ]]; then
+  git fetch origin "$DEPLOY_BRANCH"
+  git reset --hard "origin/$DEPLOY_BRANCH"
+fi
+
+echo docker cp data/. data_vol:/data/.
+docker cp data/. data_vol:/data/.
+sleep 2
+
+docker compose pull --policy always
+docker compose up -d --remove-orphans
+docker image prune -f
+
+/bin/bash -c "'${SCRIPTS_DIR}/backup_volumes' after_$(git rev-parse --short HEAD)"
+
+echo "OK: deployed $(git rev-parse --short HEAD)"
+
