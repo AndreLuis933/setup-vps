@@ -71,8 +71,8 @@ while true; do
     fi
 
     # Apaga APENAS a pasta do job executado
-    #echo "[$curr_date] Removing job folder: $JOB_FOLDER"
-    #docker exec data_vol sh -c "rm -rf ${JOB_FOLDER}"
+    echo "[$curr_date] Removing job folder: $JOB_FOLDER"
+    docker exec data_vol sh -c "rm -rf ${JOB_FOLDER}"
 
   ) 200>"$LOCK_FILE"
 
