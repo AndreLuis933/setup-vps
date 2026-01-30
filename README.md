@@ -11,6 +11,7 @@ empresarial, tudo rodando sobre um
 [KVM 2 - Hostinger](https://hostinger.com/otaviomiranda).
 
 
+
 Também detalhei este processo em vídeo caso queira assistir:
 
 [![YouTube Video](http://img.youtube.com/vi/yxxEk68EDgo/hqdefault.jpg)](https://youtu.be/yxxEk68EDgo 'Crie seu próprio cloud em VPS')
