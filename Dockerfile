@@ -1,59 +1,51 @@
-FROM ghcr.io/astral-sh/uv:0.9.17-trixie-slim AS builder
+# Stage 1: Build
+FROM golang:1.25.6-alpine AS builder
 
-ENV UV_COMPILE_BYTECODE=1 \
-  UV_LINK_MODE=copy \
-  UV_PYTHON_PREFERENCE=only-managed \
-  UV_NO_DEV=1 \
-  UV_PYTHON_INSTALL_DIR=/python
+RUN apk add --no-cache git ca-certificates tzdata
 
-RUN apt-get update \
-  && apt-get install -y --no-install-recommends \
-  ca-certificates build-essential \
-  && apt-get clean \
-  && rm -rf /var/lib/apt/lists/* ;
+WORKDIR /build
 
-RUN uv python install 3.14.2 ;
+COPY go.mod go.sum ./
+RUN go mod download && go mod verify
 
-WORKDIR /app
+COPY ./webhook/main.go .
 
-RUN --mount=type=cache,target=/root/.cache/uv \
-  --mount=type=bind,source=uv.lock,target=uv.lock \
-  --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
-  uv sync --locked --no-install-project ;
+# Build completamente estático
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+    -ldflags='-w -s -extldflags "-static"' \
+    -tags netgo \
+    -a \
+    -installsuffix cgo \
+    -o webhook-service .
 
-COPY . /app
-
-RUN --mount=type=cache,target=/root/.cache/uv \
-  uv sync --locked ;
-
-################################################################################
-
-FROM debian:trixie-slim AS production
+# Stage 2: Runtime
+FROM alpine:latest AS production
 
 ARG APP_UID
 ARG APP_GID
 
-ENV PYTHONUNBUFFERED=1
+# Instalar apenas o necessário
+RUN apk --no-cache add ca-certificates wget
 
-RUN groupadd --gid ${APP_GID} python \
-  && useradd --uid ${APP_UID} --gid python --shell /bin/bash --create-home python ;
+# Criar grupo e usuário (sintaxe Alpine)
+RUN addgroup -g ${APP_GID} gouser && \
+    adduser -D -u ${APP_UID} -G gouser gouser
 
-COPY --from=builder --chown=${APP_UID}:${APP_GID} /python /python
-COPY --from=builder --chown=${APP_UID}:${APP_GID} /app /app
-COPY --chmod=u=rwx,g=rx,o=rx ./data/scripts/entrypoint /scripts/entrypoint
+# Copiar binário com permissões
+COPY --from=builder --chown=${APP_UID}:${APP_GID} /build/webhook-service /app/webhook-service
 
+# Tornar executável
+RUN chmod 755 /app/webhook-service
+
+# Criar diretório webhook_jobs
 RUN mkdir -p /app/webhook_jobs && \
     chown -R ${APP_UID}:${APP_GID} /app/webhook_jobs && \
-    chmod 775 /app/webhook_jobs \
-    ;
+    chmod 775 /app/webhook_jobs
 
-ENV PATH="/app/.venv/bin:${PATH}"
-
-USER python
-ENTRYPOINT []
 WORKDIR /app
 
-CMD ["/scripts/entrypoint"]
+USER gouser
 
-# vim:sw=2:ts=2:et:set filetype=dockerfile :
+EXPOSE 8000
 
+CMD ["/app/webhook-service"]

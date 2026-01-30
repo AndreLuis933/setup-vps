@@ -1,0 +1,154 @@
+package main
+
+import (
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"os"
+	"path/filepath"
+	"regexp"
+	"strings"
+
+	"github.com/gin-gonic/gin"
+)
+
+var (
+	webhookDir      = "/app/webhook_jobs"
+	webhookSecret   string
+	repoNamePattern = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
+)
+
+type GitHubWebhookPayload struct {
+	Ref        string `json:"ref"`
+	Repository struct {
+		Name string `json:"name"`
+	} `json:"repository"`
+}
+
+func init() {
+	webhookSecret = os.Getenv("GITHUB_WEBHOOK_SECRET")
+	webhookSecret = strings.Trim(webhookSecret, "' \t\n\r")
+	if webhookSecret == "" {
+		panic("GITHUB_WEBHOOK_SECRET environment variable is required")
+	}
+
+	if err := os.MkdirAll(webhookDir, 0755); err != nil {
+		panic(fmt.Sprintf("Failed to create webhook directory: %v", err))
+	}
+}
+
+func main() {
+	router := gin.Default()
+
+	router.GET("/", rootHandler)
+	router.GET("/health", healthCheckHandler)
+	router.POST("/webhook/github", githubWebhookHandler)
+
+	router.Run(":8000")
+}
+
+func rootHandler(c *gin.Context) {
+	hostname, err := os.Hostname()
+	if err != nil {
+		hostname = "unknown"
+	}
+
+	c.String(http.StatusOK, hostname)
+}
+
+func healthCheckHandler(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{
+		"status": "healthy",
+	})
+}
+
+func verifySignature(body []byte, signature string) error {
+	if signature == "" || len(signature) < 7 || signature[:7] != "sha256=" {
+		return fmt.Errorf("missing or invalid signature")
+	}
+	mac := hmac.New(sha256.New, []byte(webhookSecret))
+	mac.Write(body)
+	expectedMAC := hex.EncodeToString(mac.Sum(nil))
+	receivedMAC := signature[7:] // Remove "sha256=" prefix
+
+	if !hmac.Equal([]byte(expectedMAC), []byte(receivedMAC)) {
+		return fmt.Errorf("signature mismatch")
+	}
+
+	return nil
+}
+
+func runDeploy(repository string) {
+	repoDir := filepath.Join(webhookDir, repository)
+	if err := os.MkdirAll(repoDir, 0755); err != nil {
+		fmt.Printf("Error creating repository directory: %v\n", err)
+		return
+	}
+
+	fmt.Printf("Deploy triggered for repository: %s\n", repository)
+}
+
+func githubWebhookHandler(c *gin.Context) {
+	body, err := io.ReadAll(c.Request.Body)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "failed to read body"})
+		return
+	}
+
+	signature := c.GetHeader("X-Hub-Signature-256")
+	if err := verifySignature(body, signature); err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		return
+	}
+
+	event := c.GetHeader("X-GitHub-Event")
+	if event != "push" {
+		c.JSON(http.StatusOK, gin.H{
+			"ok":      true,
+			"ignored": "not a push",
+		})
+		return
+	}
+
+	var payload GitHubWebhookPayload
+	if err := json.Unmarshal(body, &payload); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid JSON"})
+		return
+	}
+
+	if payload.Ref != "refs/heads/main" {
+		c.JSON(http.StatusOK, gin.H{
+			"ok":      true,
+			"ignored": "not main",
+		})
+		return
+	}
+
+	repository := payload.Repository.Name
+	if repository == "" {
+		c.JSON(http.StatusOK, gin.H{
+			"ok":      true,
+			"ignored": "sem repository",
+		})
+		return
+	}
+
+	if !repoNamePattern.MatchString(repository) {
+		c.JSON(http.StatusOK, gin.H{
+			"ok":      true,
+			"ignored": "name invalid of repository",
+		})
+		return
+	}
+
+	go runDeploy(repository)
+
+	c.JSON(http.StatusOK, gin.H{
+		"ok":     true,
+		"queued": true,
+	})
+}
