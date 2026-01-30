@@ -26,3 +26,4 @@ docker image prune -f
 /bin/bash -c "'${PROJECT_ROOT}/data/scripts/backup_volumes' after_$(git rev-parse --short HEAD)"
 
 echo "OK: deployed $(git rev-parse --short HEAD)"
+
