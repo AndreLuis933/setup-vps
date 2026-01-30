@@ -1,13 +1,6 @@
 name: Build Full Stack
 
-# TRIGGERS
-# Este workflow roda toda vez que fazemos push para o branch 'main'.
 on:
-  # # Se quiser rodar apenas manualmente
-  # workflow_dispatch:
-
-  # # Se quiser que rode ao fazer push no 'main'
-  # Ignore arquivos irrelevantes (tipo README.md, etc).
   push:
     branches: ['main']
     paths-ignore:
@@ -17,12 +10,6 @@ on:
       - 'LICENSE'
       - 'Justfile'
 
-# CONCURRENCY
-# Concorrêcia
-# Garante que o deploy aconteça em ordem.
-# 'cancel-in-progress: false' significa: Se eu enviar o commit A, depois o B,
-# espera o A terminar antes de iniciar o B.
-# Também previne race conditions.
 concurrency:
   group: deploy-main
   cancel-in-progress: false
@@ -32,16 +19,11 @@ env:
   REPO: ${{ github.repository }}
 
 jobs:
-  # JOB 2: Faz a build das imagens do Docker
-  # Só roda se o job anterior passar.
   build-and-push:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write # Para enviar para o GHCR
-
-    # STRATEGY MATRIX
-    # Isso serve para executar os mesmos passos para vários items.
+      packages: write
     strategy:
       fail-fast: false
       matrix:
@@ -49,11 +31,11 @@ jobs:
           # Main App
           - service: dockerlabs
             dockerfile: ./Dockerfile
-            target: production # Multi-stage build com target
+            target: production
           # Nginx
           - service: nginx
             dockerfile: ./Dockerfile.nginx
-            target: '' # Sem target
+            target: ''
           # Certbot
           - service: certbot
             dockerfile: ./Dockerfile.certbot
@@ -77,7 +59,6 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Gera as tags
       - name: Extract image metadata
         id: meta
         uses: docker/metadata-action@v5
@@ -88,9 +69,7 @@ jobs:
             type=raw,value=latest
             type=sha,format=long
 
-      # Aqui é a build em si
-      # Isso faz a build e envia para o GitHub Container Registry (vira package)
-      # Usa a matrix definida acima
+
       - name: Build & Push (${{ matrix.service }})
         uses: docker/build-push-action@v6
         with:
@@ -107,12 +86,8 @@ jobs:
           build-args: |
             APP_UID=1011
             APP_GID=1011
-
-  # JOB 3: Notifica o server via webhook
-  # Só roda se todos os jobs anteriores pasarrem
   notify-server:
     runs-on: ubuntu-latest
-    # if: ${{ false }} # Se você descomentar essa linha, esse job será pulado
     needs: build-and-push
     steps:
       - name: Call deploy webhook
