@@ -110,7 +110,7 @@ done
 
 
 ################################################################################
-
+# sudo systemctl restart webhook-watcher
 # # Commands to create
 # sudo systemctl daemon-reload
 # sudo systemctl enable webhook-watcher
