@@ -1,12 +1,6 @@
 #!/usr/bin/env bash
 # vim:sw=2:ts=2:et:set filetype=bash :
 
-# ################################################################################
-# # Author: Luiz Otávio Miranda <luizomf@gmail.com>
-# # Date: 2026-01-13
-# # License: MIT
-# ################################################################################
-
 # docker exec data_vol sh -c "ls -A /data/webhook_jobs | head -n 1"
 #docker exec data_vol sh -c "find /data/webhook_jobs -mindepth 1 -maxdepth 1 -type d | head -n 1"
 set -u
@@ -51,8 +45,20 @@ while true; do
     JOB_NAME=$(basename "$JOB_FOLDER")
     echo "[$curr_date] Processing job: $JOB_NAME"
 
-    # Determina qual script executar baseado no nome da pasta
-    DEPLOY_SCRIPT="/projects/${JOB_NAME}/scripts/deploy"
+    DEPLOY_SCRIPT_ROOT="/projects/${JOB_NAME}"
+    DEPLOY_SCRIPT="${DEPLOY_SCRIPT_ROOT}/scripts/deploy"
+    ENV_FILE="${DEPLOY_SCRIPT_ROOT}/.env"
+
+    [[ -f "${ENV_FILE}" ]] && source "${ENV_FILE}"
+
+    cd "$DEPLOY_SCRIPT_ROOT"
+
+    # Atualiza git apenas se for repositório git E ou ambiente production ou vazio
+    if [[ -d .git ]] && [[ -z "$CURRENT_ENV" || "$CURRENT_ENV" == "production" ]]; then
+      echo "[$curr_date] Updating git repository (branch: ${DEPLOY_BRANCH:-main})..."
+      git fetch origin "${DEPLOY_BRANCH:-main}"
+      git reset --hard "origin/${DEPLOY_BRANCH:-main}"
+    fi
 
     if [[ ! -f "$DEPLOY_SCRIPT" ]]; then
       echo "[$curr_date] Deploy script not found: $DEPLOY_SCRIPT. Skipping..."
@@ -66,10 +72,9 @@ while true; do
         echo "[$(date "+%s")] Deploy success for $JOB_NAME."
     else
         echo "[$(date "+%s")] Deploy failed for $JOB_NAME."
-        # Optional: Send notification to Discord/Slack here
     fi
 
-    # Apaga APENAS a pasta do job executado
+    # Sempre remove o job (marca como feito, mesmo se falhar)
     echo "[$curr_date] Removing job folder: $JOB_FOLDER"
     docker exec data_vol sh -c "rm -rf ${JOB_FOLDER}"
 
