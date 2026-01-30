@@ -128,8 +128,14 @@ jobs:
           # Cria o payload
           PAYLOAD=$(python3 - <<'PY'
           import json, os
-          payload = {"ref": os.environ["REF"], "after": os.environ["SHA"],"repository": os.environ["REPOSITORY"]}
-          print(json.dumps(payload, separators=( ",", ":" )))
+          payload = {
+              "ref": os.environ["REF"],
+              "after": os.environ["SHA"],
+              "repository": {
+                  "name": os.environ["REPOSITORY"]
+              }
+          }
+          print(json.dumps(payload, separators=(",", ":")))
           PY
           )
           export PAYLOAD
