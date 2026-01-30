@@ -1,0 +1,47 @@
+# vim:sw=2:ts=2:et:set filetype=yaml :
+
+services:
+  data_vol:
+    pull_policy: never
+    image: data_vol
+    build:
+      context: .
+      dockerfile: Dockerfile.data_vol
+      args:
+        - APP_UID=1011
+        - APP_GID=1011
+
+  dockerlabs:
+    pull_policy: never
+    image: dockerlabs
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+      args:
+        - APP_UID=1011
+        - APP_GID=1011
+    develop:
+      watch:
+        - action: sync+restart
+          path: .
+          target: /app
+          ignore:
+            - .venv/
+            - __pycache__/
+        - action: rebuild
+          path: ./uv.lock
+
+  nginx:
+    image: nginx:1.29.4-alpine
+    pull_policy: never
+    build:
+      context: .
+      dockerfile: Dockerfile.nginx
+
+  certbot:
+    image: certbot:v5.2.2
+    pull_policy: never
+    build:
+      context: .
+      dockerfile: Dockerfile.certbot

@@ -1,0 +1,9 @@
+FROM nginx:1.29.4-alpine
+
+COPY ./data/scripts/nginx_renewal /scripts/nginx_renewal
+COPY ./data/nginx /etc/nginx
+
+ENTRYPOINT ["/docker-entrypoint.sh"]
+CMD ["/scripts/nginx_renewal"]
+
+# vim:sw=2:ts=2:et:set filetype=dockerfile :

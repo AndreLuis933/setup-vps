@@ -1,0 +1,7 @@
+FROM certbot/certbot:v5.2.2
+
+COPY ./data/scripts/certbot_renewal /scripts/certbot_renewal
+
+ENTRYPOINT ["/scripts/certbot_renewal"]
+
+# vim:sw=2:ts=2:et:set filetype=dockerfile :

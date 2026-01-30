@@ -1,0 +1,114 @@
+#!/usr/bin/env bash
+# vim:sw=2:ts=2:et:set filetype=bash :
+
+# ################################################################################
+# # Author: Luiz Otávio Miranda <luizomf@gmail.com>
+# # Date: 2026-01-13
+# # License: MIT
+# ################################################################################
+
+set -u
+
+PARENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}" || exit)" && pwd)"
+INTERVAL=60 # (Seconds) Check interval
+
+# Webhook Jobs Directory (Inside the shared volume)
+# I'm using the data_vol container to spread volumes for the other
+# containers.
+WEBHOOKS_JOBS_DIR="/data/webhook_jobs"
+# The job runs in the host server. The lock file path refers to the host.
+LOCK_FILE="/tmp/webhook_deploy.lock"
+
+echo "Watcher started. Lock file: $LOCK_FILE"
+
+while true; do
+  # Check if there are any files in the directory.
+  # We don't care about the name or order, just presence.
+  # 'ls -A' lists all entries except . and ..
+  HAS_JOBS=$(docker exec data_vol sh -c "ls -A ${WEBHOOKS_JOBS_DIR} | head -n 1")
+
+  if [[ -z "$HAS_JOBS" ]]; then
+    # No jobs, sleep and retry based on the INTERVAL
+    sleep $INTERVAL
+    continue
+  fi
+
+  # Jobs found! Let's acquire the lock to ensure atomic execution.
+  # The parentheses opens a subshell that will be locked.
+  (
+    flock -n 200 || exit 1 # <- HELLO GIL 😂
+
+    curr_date=$(date "+%s")
+    echo "[$curr_date] Jobs detected! Locking and starting deploy sequence..."
+
+    # DEBOUNCE STRATEGY:
+    # Instead of processing one by one, we wipe the queue and run the deploy ONCE.
+    # Since the deploy script performs a 'git pull', it will always fetch the
+    # latest state (the sum of all pushes). This prevents redundant builds.
+
+    echo "[$curr_date] Clearing job queue (Debounce)..."
+    docker exec data_vol sh -c "rm -rf ${WEBHOOKS_JOBS_DIR}/*"
+
+    echo "[$curr_date] Running deploy script..."
+
+    if /bin/bash "${PARENT_DIR}/deploy"; then
+        echo "[$(date "+%s")] Deploy success."
+    else
+        echo "[$(date "+%s")] Deploy failed."
+        # Optional: Send notification to Discord/Slack here
+    fi
+
+  ) 200>"$LOCK_FILE"
+
+  # If flock exited with 1, it means another instance is running.
+  # We just wait for the next cycle.
+  if [ $? -eq 1 ]; then
+      echo "[$(date "+%s")] Deploy already in progress. Skipping..."
+  fi
+
+  sleep $INTERVAL
+done
+
+################################################################################
+
+# Instructions
+# sudo vim /etc/systemd/system/webhook-watcher.service
+#
+# [Unit]
+# Description=Webhook Watcher for Docker Deployment
+# After=network.target
+#
+# [Service]
+# Type=simple
+# WorkingDirectory=/dockerlabs/
+# ExecStart=/dockerlabs/data/scripts/watcher
+# Restart=always
+# RestartSec=3
+# User=luizotavio
+# Group=luizotavio
+#
+# [Install]
+# WantedBy=multi-user.target
+#
+
+################################################################################
+
+# # Commands to create
+# sudo systemctl daemon-reload
+# sudo systemctl enable webhook-watcher
+# sudo systemctl start webhook-watcher
+# sudo systemctl status webhook-watcher
+#
+# Commands to remove
+# sudo systemctl stop webhook-watcher
+# sudo systemctl disable webhook-watcher
+# sudo rm /etc/systemd/system/webhook-watcher.service
+# sudo systemctl daemon-reload
+# # If it insists
+# sudo systemctl reset-failed
+#
+# Check journal live (logs)
+# sudo journalctl -u webhook-watcher.service -f
+#
+
+################################################################################

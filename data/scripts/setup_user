@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# vim:sw=2:ts=2:et:set filetype=bash :
+
+# ################################################################################
+# # Author: Luiz Otávio Miranda <luizomf@gmail.com>
+# # Date: 2026-01-10
+# # License: MIT
+# ################################################################################
+
+set -o vi
+export EDITOR=vim
+export VISUAL=vim
+bind -m vi-insert '"jj": vi-movement-mode'
+
+# PS1=
+# PS1="${PS1}${debian_chroot:+($debian_chroot)}"
+# PS1="${PS1}\[\033[00;32m\]use o cupom\[\033[00m\]"
+# PS1="${PS1}\[\033[00;32m\]@ \[\033[00m\]"
+# PS1="${PS1}\[\033[0;1;30m\]\[\033[42m\] otaviomiranda \[\033[00m\] "
+# PS1="${PS1}:\[\033[01;32m\]\w\[\033[00m\]\$ "
+

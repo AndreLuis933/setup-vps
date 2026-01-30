@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+# vim:sw=2:ts=2:et:set filetype=bash :
+
+# ################################################################################
+# # Author: Luiz Otávio Miranda <luizomf@gmail.com>
+# # Date: 2026-01-10
+# # License: MIT
+# ################################################################################
+
+set -Eeuo pipefail
+
+SCRIPTS_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" || exit 1 && pwd)
+DATA_DIR="$(dirname "${SCRIPTS_DIR}")"
+ROOT_DIR="$(dirname "${DATA_DIR}")"
+BACKUPS_DIR="${ROOT_DIR}/backups"
+
+mkdir -p "${BACKUPS_DIR}"
+
+create_backup() {
+  CHECKPOINT="${1:-standalone}"
+
+  BACKUP_NAME="$(date "+%Y-%m-%dT%H-%M-%S")_${CHECKPOINT}"
+  BACKUP_DIR="${BACKUPS_DIR}/${BACKUP_NAME}"
+  BACKUP_TAR_NAME="${BACKUP_NAME}.tar.gz"
+  BACKUP_TAR_FILE="${BACKUPS_DIR}/${BACKUP_TAR_NAME}"
+
+  mkdir -p "${BACKUP_DIR}"
+  docker compose cp data_vol:/data "${BACKUP_DIR}" >/dev/null 2>&1 || true
+
+  cd "${BACKUPS_DIR}"
+  tar -czf "${BACKUP_TAR_FILE}" "${BACKUP_NAME}" >/dev/null 2>&1 || true
+  rm -Rf "$BACKUP_NAME" >/dev/null 2>&1 || true
+
+  echo
+  echo "Data backup generate: ${BACKUP_TAR_FILE}"
+  echo "Use the commands bellow if you need to use it:"
+  echo
+  echo "cd ${BACKUPS_DIR}"
+  echo "tar -xzf ${BACKUP_TAR_NAME}"
+  echo docker compose cp "${BACKUP_NAME}/data" data_vol:/
+  echo "cd .."
+  echo
+  echo
+}
+
+create_backup "${@}"
+

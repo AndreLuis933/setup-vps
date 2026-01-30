@@ -1,0 +1,24 @@
+FROM alpine:latest
+
+RUN apk add --no-cache gettext ;
+
+ARG APP_UID
+ARG APP_GID
+
+# This is to avoid breaking if we clone the repo missing empty directories.
+RUN mkdir -p /data/webhook_jobs /data/nginx/ /data/scripts /data/certbot /data/letsencrypt ;
+
+COPY ./data /data/
+
+RUN chmod +x /data/scripts/*
+
+RUN mkdir -p /data/webhook_jobs && \
+    chown -R ${APP_UID}:${APP_GID} /data/webhook_jobs && \
+    chmod 755 /data/webhook_jobs \
+    ;
+
+ENTRYPOINT []
+CMD ["/bin/sh"]
+
+# vim:sw=2:ts=2:et:set filetype=dockerfile :
+

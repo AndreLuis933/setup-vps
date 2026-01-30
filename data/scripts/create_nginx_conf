@@ -1,0 +1,46 @@
+#!/usr/bin/env sh
+# vim:sw=2:ts=2:et:set filetype=sh :
+
+# ################################################################################
+# # Author: Luiz Otávio Miranda <luizomf@gmail.com>
+# # Date: 2026-01-10
+# # License: MIT
+# ################################################################################
+
+# This is a bit different from the usual bash script because it runs on alpine
+# using ash.
+
+SCRIPTS_DIR=$(cd "$(dirname "$0")" || exit 1 && pwd)
+DATA_DIR="$(dirname "${SCRIPTS_DIR}")"
+
+[ -z "${DOMAINS:-}" ] && printf "\nERROR: Missing ENV DOMAINS. Check your .env file.\n\n" && exit 1
+[ -z "${CURRENT_ENV:-}" ] && printf "\nERROR: Missing ENV CURRENT_ENV. Check your .env file.\n\n" && exit 1
+
+if [ "${CURRENT_ENV}" != "production" ]; then
+  DOMAINS="_"
+fi
+
+_create_conf() {
+  templates_dir="${DATA_DIR}/nginx/templates"
+  confd_dir="${DATA_DIR}/nginx/conf.d"
+
+  template_name="${1:-app.conf.template}"
+  output_name="${2:-app.conf}"
+  template_path="${templates_dir}/${template_name}"
+  output_path="${confd_dir}/${output_name}"
+
+  if [ ! -f "${template_path}" ]; then
+    printf "\nERROR: Missing nginx template file: %s\n\n" "$template_path"
+    exit 1
+  fi
+
+  mkdir -p "$(dirname "$output_path")"
+
+  # shellcheck disable=SC2016
+  DOMAINS=$DOMAINS CURRENT_ENV=$CURRENT_ENV \
+  envsubst '${DOMAINS} ${CURRENT_ENV}' \
+  < "$template_path" \
+  > "$output_path"
+}
+
+_create_conf "${@}"

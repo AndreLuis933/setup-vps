@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+# vim:sw=2:ts=2:et:set filetype=bash :
+
+# ################################################################################
+# # Author: Luiz Otávio Miranda <luizomf@gmail.com>
+# # Date: 2026-01-10
+# # License: MIT
+# ################################################################################
+
+SCRIPTS_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" || exit 1 && pwd)
+DATA_DIR="$(dirname "${SCRIPTS_DIR}")"
+ROOT_DIR="$(dirname "${DATA_DIR}")"
+
+if [[ -z "${CURRENT_ENV:-}" ]]; then
+  ENV_FILE="${ROOT_DIR}/.env"
+
+  [[ ! -f "${ENV_FILE}" ]] && printf "\nERROR: Missing .env file\n\n" && exit 1
+
+  # shellcheck source=../../.env
+  source "${ENV_FILE}"
+fi
+
+if [[ -z "${CURRENT_ENV:-}" ]]; then
+  printf "\nERROR: Could not load ENV variables. Set your .env file.\n\n"
+  exit 1
+fi
+
+if [[ "${CURRENT_ENV:-}" != "production" ]]; then
+  printf "\nERROR: Not in production. Set your .env file.\n\n"
+  exit 1
+fi
+
+
+[[ -z "${DOMAINS:-}" ]] && printf "\nERROR: Missing ENV DOMAINS. Check your .env file.\n\n" && exit 1
+
+certbot_cmd="certbot certonly"
+certbot_cmd="${certbot_cmd} --webroot -w /var/www/certbot"
+certbot_cmd="${certbot_cmd} --email ${EMAIL} --noninteractive --agree-tos"
+certbot_cmd="${certbot_cmd} --force-renewal --expand --rsa-key-size 4096 "
+certbot_cmd="${certbot_cmd} --cert-name ${CURRENT_ENV}"
+
+for domain in $DOMAINS ; do
+  certbot_cmd+=" -d ${domain}"
+done
+
+echo
+echo "Certbot command:"
+echo
+echo "${certbot_cmd}"
+echo
+
+docker compose exec certbot sh -c "${certbot_cmd}"
+

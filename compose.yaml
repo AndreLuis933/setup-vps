@@ -1,0 +1,101 @@
+# vim:sw=2:ts=2:et:set filetype=yaml :
+
+services:
+  data_vol:
+    image: ghcr.io/andreluis933/teste_vps_deploy-data_vol:latest
+    pull_policy: always
+    container_name: data_vol
+    hostname: data_vol
+    restart: unless-stopped
+    tty: true
+    env_file:
+      - .env
+    volumes:
+      - data:/data:rw
+      - scripts:/data/scripts:rw
+      - webhook_jobs:/data/webhook_jobs:rw
+      - nginx:/data/nginx:rw
+      - letsencrypt:/data/letsencrypt:rw
+      - certbot:/data/certbot:rw
+    networks:
+      main_network:
+        aliases:
+          - dockerlabs
+
+  dockerlabs:
+    pull_policy: always
+    image: ghcr.io/andreluis933/teste_vps_deploy-dockerlabs:latest
+    restart: unless-stopped
+    scale: 2 # <- Uma aplicação, 2 containers
+    volumes:
+      - scripts:/scripts:ro
+      - webhook_jobs:/app/webhook_jobs:rw
+    env_file:
+      - .env
+    healthcheck:
+      test: ['CMD', 'healthcheck']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    depends_on:
+      data_vol:
+        condition: service_started
+    networks:
+      main_network:
+        aliases:
+          - dockerlabs
+
+  nginx:
+    container_name: nginx
+    hostname: nginx
+    pull_policy: always
+    image: ghcr.io/andreluis933/teste_vps_deploy-nginx:latest
+    restart: unless-stopped
+    ports:
+      - 443:443
+      - 80:80
+    env_file:
+      - .env
+    volumes:
+      - scripts:/scripts:ro
+      - nginx:/etc/nginx:ro
+      - letsencrypt:/etc/letsencrypt:ro
+      - certbot:/var/www/certbot:rw
+    depends_on:
+      data_vol:
+        condition: service_started
+    networks:
+      - main_network
+
+  certbot:
+    container_name: certbot
+    hostname: certbot
+    pull_policy: always
+    image: ghcr.io/andreluis933/teste_vps_deploy-certbot:latest
+    restart: unless-stopped
+    volumes:
+      - scripts:/scripts:ro
+      - letsencrypt:/etc/letsencrypt:rw
+      - certbot:/var/www/certbot:rw
+    entrypoint: /scripts/certbot_renewal
+    networks:
+      - main_network
+    depends_on:
+      data_vol:
+        condition: service_started
+
+networks:
+  main_network:
+    ipam:
+      driver: default
+      config:
+        - subnet: '10.11.12.0/24'
+
+volumes:
+  data:
+  scripts:
+  webhook_jobs:
+  nginx:
+  certbot:
+  letsencrypt:

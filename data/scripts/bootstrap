@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+# vim:sw=2:ts=2:et:set filetype=bash :
+
+# ################################################################################
+# # Author: Luiz Otávio Miranda <luizomf@gmail.com>
+# # Date: 2026-01-10
+# # License: MIT
+# ################################################################################
+
+set -Eeuo pipefail
+
+SCRIPTS_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" || exit 1 && pwd)
+DATA_DIR="$(dirname "${SCRIPTS_DIR}")"
+ROOT_DIR="$(dirname "${DATA_DIR}")"
+ENV_FILE="${ROOT_DIR}/.env"
+BACKUPS_DIR="${ROOT_DIR}/backups"
+
+mkdir -p "${BACKUPS_DIR}"
+
+container_up_or_die() {
+  name=$1
+  if [ "$(docker inspect -f '{{.State.Status}}' "$name" 2>/dev/null)" != "running" ]; then
+      printf "\nERROR: Container %s not running.\n\n" "$name" && exit 1
+  fi
+}
+
+[[ ! -f "${ENV_FILE}" ]] && printf "\nERROR: Missing .env file\n\n" && exit 1
+
+# shellcheck source=../../.env
+source "${ENV_FILE}"
+
+docker compose up -d --build --remove-orphans --renew-anon-volumes
+
+container_up_or_die "data_vol"
+container_up_or_die "nginx"
+container_up_or_die "certbot"
+
+development_certs_dir="${DATA_DIR}/letsencrypt/live/development"
+privkey_path="${development_certs_dir}/privkey.pem"
+fullchain_path="${development_certs_dir}/fullchain.pem"
+
+/bin/bash -c "'${SCRIPTS_DIR}/backup_volumes' before"
+
+mkdir -p "${development_certs_dir}"
+openssl_cmd="openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout"
+openssl_cmd="${openssl_cmd} ${privkey_path}  -out "
+openssl_cmd="${openssl_cmd} ${fullchain_path} -subj /CN=localhost"
+/bin/bash -c "${openssl_cmd}"
+
+docker compose exec data_vol sh -c "mkdir -p /data/letsencrypt/live/development"
+docker cp "${development_certs_dir}"/. data_vol:"/data/letsencrypt/live/development/."
+
+if [[ "${CURRENT_ENV:-}" == "production" ]]; then
+  docker compose exec data_vol /bin/sh -c "/data/scripts/create_nginx_conf app.http-only.conf.template"
+  docker compose up -d nginx --build --force-recreate --remove-orphans
+
+  container_up_or_die nginx
+  container_up_or_die certbot
+
+  /bin/sh -c "${SCRIPTS_DIR}/certbot_create_prod_certs"
+
+  if ! docker compose exec data_vol sh -c "test -f /data/letsencrypt/live/production/fullchain.pem"; then
+    docker compose exec data_vol /bin/sh -c "/data/scripts/create_nginx_conf app.conf.template"
+
+    echo
+    echo "It seems like certbot did not generate your production certificates. Ending here for safety."
+    echo
+    exit 1
+  fi
+fi
+
+docker compose exec data_vol /bin/sh -c "/data/scripts/create_nginx_conf app.conf.template"
+docker compose up -d --build --force-recreate --remove-orphans
+
+container_up_or_die nginx
+container_up_or_die certbot
+
+/bin/bash -c "'${SCRIPTS_DIR}/backup_volumes' after"
+
