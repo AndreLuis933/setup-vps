@@ -18,9 +18,7 @@ services:
       - letsencrypt:/data/letsencrypt:rw
       - certbot:/data/certbot:rw
     networks:
-      main_network:
-        aliases:
-          - dockerlabs
+      nginx_network:
 
   dockerlabs:
     pull_policy: always
@@ -43,9 +41,7 @@ services:
       data_vol:
         condition: service_started
     networks:
-      main_network:
-        aliases:
-          - dockerlabs
+      nginx_network:
 
   nginx:
     container_name: nginx
@@ -67,7 +63,7 @@ services:
       data_vol:
         condition: service_started
     networks:
-      - main_network
+      - nginx_network
 
   certbot:
     container_name: certbot
@@ -81,13 +77,13 @@ services:
       - certbot:/var/www/certbot:rw
     entrypoint: /scripts/certbot_renewal
     networks:
-      - main_network
+      - nginx_network
     depends_on:
       data_vol:
         condition: service_started
 
 networks:
-  main_network:
+  nginx_network:
     ipam:
       driver: default
       config:
