@@ -54,7 +54,7 @@ while true; do
     cd "$DEPLOY_SCRIPT_ROOT"
 
     # Atualiza git apenas se for repositório git E ou ambiente production ou vazio
-    if [[ -d .git ]] && [[ -z "$CURRENT_ENV" || "$CURRENT_ENV" == "production" ]]; then
+    if [[ -d .git ]] && [[ -z "${CURRENT_ENV:-}" || "${CURRENT_ENV:-}" == "production" ]]; then
       echo "[$curr_date] Updating git repository (branch: ${DEPLOY_BRANCH:-main})..."
       git fetch origin "${DEPLOY_BRANCH:-main}"
       git reset --hard "origin/${DEPLOY_BRANCH:-main}"
