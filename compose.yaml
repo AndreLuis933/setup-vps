@@ -20,7 +20,7 @@ services:
     networks:
       nginx_network:
 
-  dockerlabs:
+  webhook-github:
     pull_policy: always
     image: ghcr.io/andreluis933/setup-vps-dockerlabs:latest
     restart: unless-stopped

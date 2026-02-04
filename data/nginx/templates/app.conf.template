@@ -2,7 +2,7 @@ resolver 127.0.0.11 valid=1s ipv6=off;
 
 upstream backend {
   zone upstream_backend 128k;
-  server dockerlabs:8000 resolve;
+  server webhook-github:8000 resolve;
   keepalive 32;
 }
 
@@ -14,7 +14,7 @@ upstream webhook_sms {
 
 upstream webhook_github {
   zone upstream_webhook_github 128k;
-  server dockerlabs:8000 resolve;
+  server webhook-github:8000 resolve;
   keepalive 32;
 }
 
