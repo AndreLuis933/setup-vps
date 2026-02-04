@@ -21,6 +21,7 @@ services:
       nginx_network:
 
   webhook-github:
+    container_name: webhook-github
     pull_policy: always
     image: ghcr.io/andreluis933/setup-vps-dockerlabs:latest
     restart: unless-stopped
