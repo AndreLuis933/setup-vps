@@ -42,14 +42,19 @@ func init() {
 }
 
 func main() {
-	router := gin.Default()
+	router := gin.New()
+
+	router.Use(gin.LoggerWithConfig(gin.LoggerConfig{
+		SkipPaths: []string{"/health"},
+	}))
+
+	router.Use(gin.Recovery())
 	router.SetTrustedProxies([]string{
 		"10.11.12.0/24",
 	})
 
 	router.GET("/", rootHandler)
 	router.HEAD("/health", healthCheckHandler)
-	router.GET("/health", healthCheckHandler)
 	router.POST("/webhook/github", githubWebhookHandler)
 
 	router.Run(":8000")
