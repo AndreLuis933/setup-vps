@@ -1,0 +1,141 @@
+# Copy this file to your project's .github/workflows/deploy.yaml
+#
+# Required GitHub repository secrets:
+#   DEPLOY_WEBHOOK_URL    - https://your-domain.com/webhook/github
+#   DEPLOY_WEBHOOK_SECRET - same value as GITHUB_WEBHOOK_SECRET in the VPS .env
+#
+# The webhook server only accepts pushes to refs/heads/main.
+# Pushes to other branches are ignored (HTTP 200 with "ignored": "not main").
+
+# TODO: Change the workflow name to match your project
+name: Build and Deploy
+
+on:
+  push:
+    branches: ['main']
+    paths-ignore:
+      - '**/*.md'
+      - '.gitignore'
+      - 'docs/**'
+      - 'LICENSE'
+
+concurrency:
+  group: deploy-main
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+  REPO: ${{ github.repository }}
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # TODO: Replace with your service(s). Each entry builds one Docker image.
+          #   service:    suffix for the image name (ghcr.io/{owner}/{repo}-{service}:latest)
+          #   dockerfile: path to the Dockerfile
+          #   target:     multi-stage build target (leave '' if not used)
+          - service: app
+            dockerfile: ./Dockerfile
+            target: production
+
+          # TODO: Add more services as needed. Examples:
+          # - service: worker
+          #   dockerfile: ./Dockerfile.worker
+          #   target: production
+          # - service: nginx
+          #   dockerfile: ./Dockerfile.nginx
+          #   target: ''
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract image metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ${{ env.REGISTRY }}/${{ env.REPO }}-${{ matrix.service }}
+          tags: |
+            type=raw,value=latest
+            type=sha,format=long
+
+      - name: Build & Push (${{ matrix.service }})
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          target: ${{ matrix.target }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          # TODO: Adjust or remove build-args as needed
+          build-args: |
+            APP_UID=1011
+            APP_GID=1011
+
+  notify-server:
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    steps:
+      - name: Call deploy webhook
+        env:
+          WEBHOOK_URL: ${{ secrets.DEPLOY_WEBHOOK_URL }}
+          WEBHOOK_SECRET: ${{ secrets.DEPLOY_WEBHOOK_SECRET }}
+          SHA: ${{ github.sha }}
+          REF: refs/heads/main
+          REPOSITORY: ${{ github.event.repository.name }}
+        run: |
+          set -Eeuo pipefail
+
+          # Build the JSON payload
+          PAYLOAD=$(python3 - <<'PY'
+          import json, os
+          payload = {
+              "ref": os.environ["REF"],
+              "after": os.environ["SHA"],
+              "repository": {
+                  "name": os.environ["REPOSITORY"]
+              }
+          }
+          print(json.dumps(payload, separators=(",", ":")))
+          PY
+          )
+          export PAYLOAD
+
+          # Sign the payload with HMAC-SHA256
+          # The webhook server validates this signature using the same secret.
+          SIGNATURE=$(python3 - <<'PY'
+          import hmac, hashlib, os
+          secret = os.environ["WEBHOOK_SECRET"].encode()
+          payload = os.environ["PAYLOAD"].encode()
+          print("sha256=" + hmac.new(secret, payload, hashlib.sha256).hexdigest())
+          PY
+          )
+
+          echo "Triggering deploy webhook..."
+          curl -fsS -X POST \
+            -H "Content-Type: application/json" \
+            -H "X-GitHub-Event: push" \
+            -H "X-Hub-Signature-256: $SIGNATURE" \
+            -d "$PAYLOAD" \
+            "$WEBHOOK_URL"
