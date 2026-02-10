@@ -53,20 +53,10 @@ func main() {
 		"10.11.12.0/24",
 	})
 
-	router.GET("/", rootHandler)
 	router.HEAD("/health", healthCheckHandler)
 	router.POST("/webhook/github", githubWebhookHandler)
 
 	router.Run(":8000")
-}
-
-func rootHandler(c *gin.Context) {
-	hostname, err := os.Hostname()
-	if err != nil {
-		hostname = "unknown"
-	}
-
-	c.String(http.StatusOK, hostname)
 }
 
 func healthCheckHandler(c *gin.Context) {
@@ -104,60 +94,49 @@ func runDeploy(repository string) {
 func githubWebhookHandler(c *gin.Context) {
 	body, err := io.ReadAll(c.Request.Body)
 	if err != nil {
+		fmt.Printf("[WEBHOOK] Failed to read body: %v\n", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "failed to read body"})
 		return
 	}
 
 	signature := c.GetHeader("X-Hub-Signature-256")
 	if err := verifySignature(body, signature); err != nil {
+		fmt.Printf("[WEBHOOK] Signature failed: %v | sig_present: %v | body_len: %d\n",
+			err, signature != "", len(body))
 		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 		return
 	}
 
 	event := c.GetHeader("X-GitHub-Event")
 	if event != "push" {
-		c.JSON(http.StatusOK, gin.H{
-			"ok":      true,
-			"ignored": "not a push",
-		})
+		fmt.Printf("[WEBHOOK] Ignored event type: %s\n", event)
+		c.JSON(http.StatusOK, gin.H{"ok": true, "ignored": "not a push"})
 		return
 	}
 
 	var payload GitHubWebhookPayload
 	if err := json.Unmarshal(body, &payload); err != nil {
+		fmt.Printf("[WEBHOOK] Invalid JSON: %v\n", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid JSON"})
 		return
 	}
 
 	if payload.Ref != "refs/heads/main" {
-		c.JSON(http.StatusOK, gin.H{
-			"ok":      true,
-			"ignored": "not main",
-		})
+		fmt.Printf("[WEBHOOK] Ignored ref: %s | repo: %s\n", payload.Ref, payload.Repository.Name)
+		c.JSON(http.StatusOK, gin.H{"ok": true, "ignored": "not main"})
 		return
 	}
 
 	repository := payload.Repository.Name
-	if repository == "" {
-		c.JSON(http.StatusOK, gin.H{
-			"ok":      true,
-			"ignored": "sem repository",
-		})
+	if !repoNamePattern.MatchString(repository) {
+		fmt.Printf("[WEBHOOK] Invalid or empty repo name: %q\n", repository)
+		c.JSON(http.StatusOK, gin.H{"ok": true, "ignored": "invalid repository"})
 		return
 	}
 
-	if !repoNamePattern.MatchString(repository) {
-		c.JSON(http.StatusOK, gin.H{
-			"ok":      true,
-			"ignored": "name invalid of repository",
-		})
-		return
-	}
+	fmt.Printf("[WEBHOOK] Deploy queued: %s\n", repository)
 
 	go runDeploy(repository)
 
-	c.JSON(http.StatusOK, gin.H{
-		"ok":     true,
-		"queued": true,
-	})
+	c.JSON(http.StatusOK, gin.H{"ok": true, "queued": true})
 }
