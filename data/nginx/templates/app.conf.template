@@ -32,8 +32,7 @@ server {
   }
 
   location / {
-    # The HTTP 301 status code means "Moved Permanently". We are not answering
-    # any other request using HTTP, instead, we are redirecting to HTTPS.
+    access_log off;
     return 301 https://$host$request_uri;
   }
 }
@@ -87,6 +86,11 @@ server {
     proxy_connect_timeout 2s;
     proxy_read_timeout 65s;
     proxy_send_timeout 65s;
+  }
+
+  location / {
+    access_log off;
+    return 444;
   }
 
 }
