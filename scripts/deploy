@@ -19,6 +19,8 @@ echo docker cp data/. data_vol:/data/.
 docker cp data/. data_vol:/data/.
 sleep 2
 
+docker compose exec data_vol sh -c "/data/scripts/create_nginx_conf app.conf.template"
+
 docker compose pull --policy always
 docker compose up -d --remove-orphans
 docker image prune -f

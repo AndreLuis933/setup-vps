@@ -1,0 +1,23 @@
+#!/bin/bash
+set -e
+
+SERVICE_NAME="meu-front"
+REPO="andreluis933/meu-repo"
+VOLUME="setup-vps_front-assets"
+
+echo "[$(date)] Deploy do ${SERVICE_NAME}"
+
+curl -sL \
+  -o /tmp/${SERVICE_NAME}.tar.gz \
+  "https://github.com/${REPO}/releases/latest/download/${SERVICE_NAME}.tar.gz"
+
+# Usa um container alpine temporário pra extrair no volume
+docker run --rm \
+  -v ${VOLUME}:/var/www \
+  -v /tmp/${SERVICE_NAME}.tar.gz:/tmp/build.tar.gz:ro \
+  alpine \
+  sh -c "rm -rf /var/www/${SERVICE_NAME} && mkdir -p /var/www/${SERVICE_NAME} && tar -xzf /tmp/build.tar.gz -C /var/www/${SERVICE_NAME}"
+
+rm /tmp/${SERVICE_NAME}.tar.gz
+
+echo "[$(date)] Deploy do ${SERVICE_NAME} concluído!"

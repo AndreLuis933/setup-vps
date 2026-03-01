@@ -1,0 +1,13 @@
+services:
+  nginx:
+    image: nginx:alpine
+    # ... suas configs existentes
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d
+      - front-assets:/var/www/fronts:ro  # readonly pro nginx
+
+#docker volume create front-assets
+volumes:
+  front-assets:
+    external: true
+    name: front-assets
