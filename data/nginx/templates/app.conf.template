@@ -87,6 +87,20 @@ server {
     proxy_read_timeout 65s;
     proxy_send_timeout 65s;
   }
+  location = /carteira {
+    return 301 /carteira/;
+  }
+
+  location /carteira/ {
+      alias /var/www/carteira-holder/;
+      try_files $uri $uri/ /carteira/index.html;
+  }
+
+  location /assets/ {
+      alias /var/www/carteira-holder/assets/;
+      expires 1y;
+      add_header Cache-Control "public, immutable";
+  }
 
   location / {
     access_log off;
