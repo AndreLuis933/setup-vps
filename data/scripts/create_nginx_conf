@@ -15,6 +15,7 @@ DATA_DIR="$(dirname "${SCRIPTS_DIR}")"
 
 [ -z "${DOMAINS:-}" ] && printf "\nERROR: Missing ENV DOMAINS. Check your .env file.\n\n" && exit 1
 [ -z "${CURRENT_ENV:-}" ] && printf "\nERROR: Missing ENV CURRENT_ENV. Check your .env file.\n\n" && exit 1
+[ -z "${MAIN_DOMAIN:-}" ] && printf "\nERROR: Missing ENV MAIN_DOMAIN. Check your .env file.\n\n" && exit 1
 
 if [ "${CURRENT_ENV}" != "production" ]; then
   DOMAINS="_"
@@ -37,8 +38,8 @@ _create_conf() {
   mkdir -p "$(dirname "$output_path")"
 
   # shellcheck disable=SC2016
-  DOMAINS=$DOMAINS CURRENT_ENV=$CURRENT_ENV \
-  envsubst '${DOMAINS} ${CURRENT_ENV}' \
+  DOMAINS=$DOMAINS CURRENT_ENV=$CURRENT_ENV MAIN_DOMAIN=$MAIN_DOMAIN \
+  envsubst '${DOMAINS} ${CURRENT_ENV} ${MAIN_DOMAIN}' \
   < "$template_path" \
   > "$output_path"
 }
