@@ -31,7 +31,7 @@ if [[ "${CURRENT_ENV:-}" != "production" ]]; then
 fi
 
 
-[[ -z "${DOMAINS:-}" ]] && printf "\nERROR: Missing ENV DOMAINS. Check your .env file.\n\n" && exit 1
+[[ -z "${ALL_DOMAINS:-}" ]] && printf "\nERROR: Missing ENV ALL_DOMAINS. Check your .env file.\n\n" && exit 1
 
 certbot_cmd="certbot certonly"
 certbot_cmd="${certbot_cmd} --webroot -w /var/www/certbot"
@@ -39,7 +39,7 @@ certbot_cmd="${certbot_cmd} --email ${EMAIL} --noninteractive --agree-tos"
 certbot_cmd="${certbot_cmd} --force-renewal --expand --rsa-key-size 4096 "
 certbot_cmd="${certbot_cmd} --cert-name ${CURRENT_ENV}"
 
-for domain in $DOMAINS ; do
+for domain in $ALL_DOMAINS ; do
   certbot_cmd+=" -d ${domain}"
 done
 

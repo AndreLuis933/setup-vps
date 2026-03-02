@@ -19,7 +19,7 @@ server {
   listen [::]:80;
 
   # Domains come from .env file
-  server_name ${DOMAINS};
+  server_name ${ALL_DOMAINS};
 
   # Removes Nginx version from the response (less information)
   server_tokens off;
@@ -41,7 +41,7 @@ server {
   listen 443 ssl;
   listen [::]:443 ssl;
 
-  server_name ${DOMAINS};
+  server_name ${MAIN_DOMAIN};
   server_tokens off;
   ssl_certificate /etc/letsencrypt/live/${CURRENT_ENV}/fullchain.pem;
   ssl_certificate_key /etc/letsencrypt/live/${CURRENT_ENV}/privkey.pem;

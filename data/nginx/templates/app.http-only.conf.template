@@ -13,7 +13,7 @@ server {
   listen [::]:80;
 
   # The domains need to be set in the .env file
-  server_name ${DOMAINS};
+  server_name ${ALL_DOMAINS};
   server_tokens off;
 
   # The webroot for certbot HTTP-01 challenges
