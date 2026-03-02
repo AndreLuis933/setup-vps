@@ -92,17 +92,17 @@ server {
   }
 
   location /carteira/ {
-      alias /var/www/carteira-holder/;
+      alias /var/www/fronts/carteira-holder/;
       try_files $uri $uri/ @carteira_spa;
   }
 
   location @carteira_spa {
-      root /var/www/carteira-holder;
+      root /var/www/fronts/carteira-holder;
       rewrite ^ /index.html break;
   }
 
   location /carteira/assets/ {
-      alias /var/www/carteira-holder/assets/;
+      alias /var/www/fronts/carteira-holder/assets/;
       expires 1y;
       add_header Cache-Control "public, immutable";
   }
