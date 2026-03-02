@@ -60,6 +60,7 @@ services:
       - nginx:/etc/nginx:ro
       - letsencrypt:/etc/letsencrypt:ro
       - certbot:/var/www/certbot:rw
+      - front-assets:/var/www/fronts:ro
     depends_on:
       data_vol:
         condition: service_started
@@ -97,3 +98,4 @@ volumes:
   nginx:
   certbot:
   letsencrypt:
+  front-assets:
