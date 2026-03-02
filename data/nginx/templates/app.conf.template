@@ -110,6 +110,12 @@ server {
     location / {
         try_files $uri $uri/ /index.html;
     }
+    location /yahoo/ {
+        proxy_pass https://query1.finance.yahoo.com/;
+        proxy_set_header User-Agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36";
+        proxy_set_header Host query1.finance.yahoo.com;
+        proxy_ssl_server_name on;
+    }
 }
 
 
