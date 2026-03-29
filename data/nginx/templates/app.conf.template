@@ -93,7 +93,7 @@ server {
     proxy_send_timeout 65s;
   }
 
-  location /webhook/audio {
+  location /webhook/audio/ {
     expires epoch;
     proxy_pass http://webhook_audio/;
     proxy_set_header Host $host;
