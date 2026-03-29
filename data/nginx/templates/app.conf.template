@@ -94,6 +94,7 @@ server {
   }
 
   location /webhook/audio/ {
+    client_max_body_size 50M;
     expires epoch;
     proxy_pass http://webhook_audio/;
     proxy_set_header Host $host;
