@@ -11,20 +11,23 @@ jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
-      contents: write  # pra criar release
+      contents: write
+
+    defaults:
+      run:
+        working-directory: front
 
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
+      - uses: oven-sh/setup-bun@v2
 
-      - run: npm ci
-      - run: npm run build
+      - run: bun install --frozen-lockfile
+
+      - run: bun run build
 
       - name: Empacota o build
-        run: tar -czf ${{ env.FRONT_NAME }}.tar.gz -C dist .
+        run: tar -czf ../${{ env.FRONT_NAME }}.tar.gz -C dist .
 
       - name: Cria Release
         uses: softprops/action-gh-release@v2
@@ -32,10 +35,3 @@ jobs:
           tag_name: ${{ env.FRONT_NAME }}-${{ github.sha }}
           files: ${{ env.FRONT_NAME }}.tar.gz
           make_latest: true
-
-  notify-server:
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Call deploy webhook
-        # ... mesmo webhook que você já usa
