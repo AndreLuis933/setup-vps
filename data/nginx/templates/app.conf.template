@@ -12,9 +12,9 @@ upstream webhook_github {
   keepalive 32;
 }
 
-upstream webhook_audio {
-  zone upstream_webhook_audio 128k;
-  server webhook_audio:8000 resolve;
+upstream audio-pipeline {
+  zone upstream_audio-pipeline 128k;
+  server audio-pipeline:8000 resolve;
   keepalive 32;
 }
 
@@ -93,10 +93,10 @@ server {
     proxy_send_timeout 65s;
   }
 
-  location /webhook/audio/ {
+  location /audio/ {
     client_max_body_size 50M;
     expires epoch;
-    proxy_pass http://webhook_audio/;
+    proxy_pass http://audio-pipeline/;
     proxy_set_header Host $host;
     proxy_set_header X-Real-IP $remote_addr;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
