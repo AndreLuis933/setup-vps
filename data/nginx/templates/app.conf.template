@@ -24,6 +24,12 @@ upstream ws_audio {
   keepalive 32;
 }
 
+upstream open_webui {
+  zone upstream_open_webui 128k;
+  server open-webui:8080 resolve;
+  keepalive 32;
+}
+
 server {
   # HTTP only (port 80)
   listen 80;
@@ -180,6 +186,41 @@ server {
       proxy_send_timeout 86400s;
   }
 
+}
+
+
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    server_name chat.${MAIN_DOMAIN};
+
+    ssl_certificate /etc/letsencrypt/live/${CURRENT_ENV}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${CURRENT_ENV}/privkey.pem;
+    include /etc/nginx/letsencrypt/conf/options-ssl-nginx.conf;
+    ssl_dhparam /etc/nginx/letsencrypt/conf/ssl-dhparams.pem;
+
+    add_header X-Frame-Options DENY;
+    add_header X-Content-Type-Options nosniff;
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    add_header Referrer-Policy strict-origin-when-cross-origin;
+
+    client_max_body_size 50M;
+
+    location / {
+        proxy_pass http://open_webui;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+
+        proxy_buffering off;
+        proxy_read_timeout 300s;
+        proxy_send_timeout 300s;
+    }
 }
 
 # This is used by the headers Connection and Upgrade
